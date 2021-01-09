@@ -27,6 +27,9 @@ START_CHAR = 'start_char'
 END_CHAR = 'end_char'
 TYPE = 'type'
 SENTIMENT = 'sentiment'
+ALT_HEAD = 'alt_head'
+ALT_SCORE = 'alt_score'
+ALT_DEPREL = 'alt_deprel'
 
 def _readonly_setter(self, name):
     full_classname = self.__class__.__module__
@@ -340,6 +343,7 @@ class Sentence(StanzaObject):
         self._text = None
         self._ents = []
         self._doc = doc
+        self._alt_score = []
 
         self._process_tokens(tokens)
 
@@ -464,6 +468,19 @@ class Sentence(StanzaObject):
     def sentiment(self, value):
         """ Set the sentiment value """
         self._sentiment = value
+
+    @property
+    def alt_score(self):
+        return self._alt_score
+
+    @alt_score.setter
+    def alt_score(self, value):
+        self._alt_score = value
+
+
+    @property
+    def n_interpretations(self):
+        return len(self._alt_score)
 
     def build_dependencies(self):
         """ Build the dependency graph for this sentence. Each dependency graph entry is
@@ -674,6 +691,8 @@ class Word(StanzaObject):
         self._deprel = word_entry.get(DEPREL, None)
         self._deps = word_entry.get(DEPS, None)
         self._misc = word_entry.get(MISC, None)
+        self._alt_head = word_entry.get(ALT_HEAD, None)
+        self._alt_deprel = word_entry.get(ALT_DEPREL, None)
         self._parent = None
 
         if self._misc is not None:
@@ -756,6 +775,7 @@ class Word(StanzaObject):
         """ Access the id of the governer of this word. """
         return self._head
 
+
     @head.setter
     def head(self, value):
         """ Set the word's governor id value. """
@@ -770,6 +790,27 @@ class Word(StanzaObject):
     def deprel(self, value):
         """ Set the word's dependency relation value. Example: 'nmod'"""
         self._deprel = value if self._is_null(value) == False else None
+
+    @property
+    def alt_head(self):
+        """ Access the id of the governer of this word. """
+        return self._alt_head
+
+
+    @alt_head.setter
+    def alt_head(self, value):
+        """ Set the word's governor id value. """
+        self._alt_head = value if self._is_null(value) == False else None
+
+    @property
+    def alt_deprel(self):
+        """ Access the dependency relation of this word. Example: 'nmod'"""
+        return self._alt_deprel
+
+    @alt_deprel.setter
+    def alt_deprel(self, value):
+        """ Set the word's dependency relation value. Example: 'nmod'"""
+        self._alt_deprel = value if self._is_null(value) == False else None
 
     @property
     def deps(self):
@@ -818,7 +859,7 @@ class Word(StanzaObject):
     def __repr__(self):
         return json.dumps(self.to_dict(), indent=2, ensure_ascii=False)
 
-    def to_dict(self, fields=[ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC]):
+    def to_dict(self, fields=[ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, DEPS, MISC, ALT_HEAD, ALT_DEPREL]):
         """ Dumps the word into a dictionary.
         """
         word_dict = {}
@@ -829,7 +870,7 @@ class Word(StanzaObject):
 
     def pretty_print(self):
         """ Print the word in one line. """
-        features = [ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL]
+        features = [ID, TEXT, LEMMA, UPOS, XPOS, FEATS, HEAD, DEPREL, ALT_HEAD, ALT_DEPREL]
         feature_str = ";".join(["{}={}".format(k, getattr(self, k)) for k in features if getattr(self, k) is not None])
         return f"<{self.__class__.__name__} {feature_str}>"
 

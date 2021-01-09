@@ -20,6 +20,7 @@ from stanza.pipeline.mwt_processor import MWTProcessor
 from stanza.pipeline.pos_processor import POSProcessor
 from stanza.pipeline.lemma_processor import LemmaProcessor
 from stanza.pipeline.depparse_processor import DepparseProcessor
+from stanza.pipeline.depparse_alt_processor import DepparseAltProcessor
 from stanza.pipeline.sentiment_processor import SentimentProcessor
 from stanza.pipeline.ner_processor import NERProcessor
 from stanza.resources.common import DEFAULT_MODEL_DIR, \
@@ -80,6 +81,7 @@ class Pipeline:
 
         # Maintain load list
         self.load_list = maintain_processor_list(resources, lang, package, processors) if lang in resources else []
+
         self.load_list = add_dependencies(resources, lang, self.load_list) if lang in resources else []
         self.load_list = self.update_kwargs(kwargs, self.load_list)
         if len(self.load_list) == 0: raise Exception('No processor to load. Please check if your language or package is correctly set.')

@@ -147,15 +147,16 @@ def maintain_processor_list(resources, lang, package, processors):
             assert(key in PIPELINE_NAMES)
             assert(isinstance(key, str) and isinstance(value, str))
             # check if keys and values can be found
-            if key in resources[lang] and value in resources[lang][key]:
+            keyp = "depparse" if key == "depparsealt" else key
+            if keyp in resources[lang] and value in resources[lang][keyp]:
                 logger.debug(f'Found {key}: {value}.')
                 processor_list[key] = value
             # allow values to be default in some cases
-            elif key in resources[lang]['default_processors'] and value == 'default':
+            elif keyp in resources[lang]['default_processors'] and value == 'default':
                 logger.debug(
-                    f'Found {key}: {resources[lang]["default_processors"][key]}.'
+                    f'Found {key}: {resources[lang]["default_processors"][keyp]}.'
                 )
-                processor_list[key] = resources[lang]['default_processors'][key]
+                processor_list[key] = resources[lang]['default_processors'][keyp]
             # allow processors to be set to variants that we didn't implement
             elif value in PROCESSOR_VARIANTS[key]:
                 logger.debug(
@@ -164,22 +165,22 @@ def maintain_processor_list(resources, lang, package, processors):
                 )
                 processor_list[key] = value
             # allow lemma to be set to "identity"
-            elif key == LEMMA and value == 'identity':
+            elif keyp == LEMMA and value == 'identity':
                 logger.debug(
-                    f'Found {key}: {value}. Using identity lemmatizer.'
+                    f'Found {keyp}: {value}. Using identity lemmatizer.'
                 )
                 processor_list[key] = value
             # not a processor in the officially supported processor list
-            elif key not in resources[lang]:
+            elif keyp not in resources[lang]:
                 logger.debug(
-                    f'{key}: {value} is not officially supported by Stanza, '
+                    f'{keyp}: {value} is not officially supported by Stanza, '
                     f'loading it anyway.'
                 )
                 processor_list[key] = value
             # cannot find the package for a processor and warn user
             else:
                 logger.warning(
-                    f'Can not find {key}: {value} from official model list. '
+                    f'Can not find {keyp}: {value} from official model list. '
                     f'Ignoring it.'
                 )
     # resolve package
@@ -213,6 +214,9 @@ def add_dependencies(resources, lang, processor_list):
     default_dependencies = resources[lang]['default_dependencies']
     for item in processor_list:
         processor, package = item
+        if processor == 'depparsealt':
+            processor = 'depparse'
+
         dependencies = default_dependencies.get(processor, None)
         # skip dependency checking for external variants of processors and identity lemmatizer
         if not any([
