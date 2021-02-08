@@ -30,7 +30,17 @@ class DepparseAltProcessor(UDProcessor):
 
     def _set_up_model(self, config, use_gpu):
         self._pretrain = Pretrain(config['pretrain_path']) if 'pretrain_path' in config else None
-        self._trainer = Trainer(pretrain=self.pretrain, model_file=config['model_path'], use_cuda=use_gpu)
+        n_parses = config['n_parses'] if 'n_parses' in config else 3
+        kalm_shuffle = config['kalm_shuffle'] if 'kalm_shuffle' in config else False
+        automatic_n_parses = config['automatic_n_parses'] if 'automatic_n_parses' in config else False
+        self._trainer = Trainer(
+                pretrain=self.pretrain, 
+                model_file=config['model_path'], 
+                use_cuda=use_gpu,
+                n_parses=n_parses,
+                kalm_shuffle=kalm_shuffle,
+                automatic_n_parses=automatic_n_parses
+                )
 
     def process(self, document):
         batch = DataLoader(document, self.config['batch_size'], self.config, self.pretrain, vocab=self.vocab, evaluation=True,

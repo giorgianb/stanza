@@ -18,11 +18,6 @@ class Edge:
             return self.name
 
 def Get1Best(V, E, score):
-#    print("Get1Best(")
-#    print("\tV =", V)
-#    print("\tE =", E)
-#    print("\tscore =", score)
-#    print(")")
     n_vertices = len(score)
     best_in_edge = {}
     for v in V - {0}:
@@ -66,8 +61,6 @@ def Get1Best(V, E, score):
 
             A = Get1Best(V_p, E_p, score_p)
             if V_p & set(A.keys()) != V_p - {0}:
-#                print("V_p:", V_p)
-#                print("A:", A)
                 return {}
 
             for e in A.values():
@@ -109,22 +102,11 @@ def is_ancestor(A, u, v):
     while cur != 0:
         if cur == u: # did we reach our vertex?
             return True
-#        print("taking edge:", A[cur])
         cur = A[cur].u # go backwards from our current edge
 
-#    print("-----------------------")
     return False
 
 def FindEdgeToBan(A, V, E, score, req, banned):
-#    print("FindEdgeToBan(")
-#    print("\tA=", A)
-#    print("\tV =", V)
-#    print("\tE =", E)
-#    print("\treq =", req)
-#    print("\tbanned =", banned)
-#    print("\tscore=", score)
-#    print(")")
-
     E = E - banned
     n_vertices = len(score)
     best_in_edge = {}
@@ -152,7 +134,6 @@ def FindEdgeToBan(A, V, E, score, req, banned):
             if next_edge is not None and score[best_in_edge[v]] - score[next_edge] < diff:
                 edge_to_ban = best_in_edge[v]
                 diff = score[best_in_edge[v]] - score[next_edge]
-#                print({e:score[e] for e in E})
 
         if (cycle := contains_cycle(best_in_edge)) is not None:
             C, C_E = cycle
@@ -241,7 +222,6 @@ def contains_cycle(edges):
     return None
 
 def GetConstrained1Best(V, E, score, req, banned):
-#    print("GetConstrained1Best(req={}, banned={})".format(req, banned))
     E = E - banned
     req_vertices = set(map(lambda e: e.v, req))
     E = set(filter(lambda e: e.v not in req_vertices or e in req, E))
@@ -250,11 +230,21 @@ def GetConstrained1Best(V, E, score, req, banned):
 def tree_score(A, score):
     return sum(map(lambda e: score[e], A.values()))
 
-def GetKBest(k, V, E, score):
+def GetKBest(k, V, E, score, kalm_shuffle, edge_type, automatic_n_parses):
     req = set()
     banned = set()
     A = Get1Best(V, E, score)
-#    print("A =", A)
+    if kalm_shuffle:
+        count = 0
+        for edge in A.values():
+            if edge_type(edge) not in {'obl', 'nmod'}:
+                req.add(edge)
+            else:
+                count += 1
+
+        if automatic_n_parses:
+            k = 2**count
+
     As = [(A, tree_score(A, score))]
     Q = []
     e_ban, diff = FindEdgeToBan(A, V, E, score, req, banned)

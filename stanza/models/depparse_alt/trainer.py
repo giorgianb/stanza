@@ -4,9 +4,18 @@ import stanza.models.depparse_alt.alternatives as alternatives
 from stanza.models.common import utils, loss
 
 class Trainer(stanza.models.depparse.trainer.Trainer):
-    def __init__(self, *args, **kwargs):
+    def __init__(
+            self, 
+            n_parses=3, 
+            kalm_shuffle=False, 
+            automatic_n_parses=False,
+            *args, 
+            **kwargs
+            ):
         super(Trainer, self).__init__(*args, **kwargs)
-        self._n_trees = 3 # will be updated to be user-settable
+        self._n_trees = n_parses
+        self._kalm_shuffle = kalm_shuffle
+        self._automatic_n_parses = automatic_n_parses
 
     def predict(self, batch, unsort=True):
         inputs, orig_idx, word_orig_idx, sentlens, wordlens = unpack_batch(batch, self.use_cuda)
@@ -31,7 +40,14 @@ class Trainer(stanza.models.depparse.trainer.Trainer):
             head_seq = []
             deprel_seq = []
             score_seq = []
-            k_best = alternatives.GetKBest(head, self._n_trees)
+            edge_type = lambda edge: self.vocab['deprel'].unmap((deps[edge.v][edge.u],))[0]
+            k_best = alternatives.GetKBest(
+                    head, 
+                    self._n_trees,
+                    self._kalm_shuffle, 
+                    edge_type,
+                    self._automatic_n_parses,
+                    )
             for j in range(sentlens[i] - 1):
                 headc = []
                 deprelc = []
