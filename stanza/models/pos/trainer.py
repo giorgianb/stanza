@@ -11,6 +11,9 @@ from stanza.models.common.trainer import Trainer as BaseTrainer
 from stanza.models.common import utils, loss
 from stanza.models.pos.model import Tagger
 from stanza.models.pos.vocab import MultiVocab
+import numpy as np
+from icecream import ic
+from collections import defaultdict
 
 logger = logging.getLogger('stanza')
 
@@ -28,7 +31,8 @@ def unpack_batch(batch, use_cuda):
 
 class Trainer(BaseTrainer):
     """ A trainer for training models. """
-    def __init__(self, args=None, vocab=None, pretrain=None, model_file=None, use_cuda=False):
+    def __init__(self, args=None, vocab=None, pretrain=None, model_file=None, use_cuda=False, n_pred=1):
+        self.n_pred = n_pred
         self.use_cuda = use_cuda
         if model_file is not None:
             # load everything from file
@@ -71,10 +75,32 @@ class Trainer(BaseTrainer):
         self.model.eval()
         batch_size = word.size(0)
         _, preds = self.model(word, word_mask, wordchars, wordchars_mask, upos, xpos, ufeats, pretrained, word_orig_idx, sentlens, wordlens)
-        upos_seqs = [self.vocab['upos'].unmap(sent) for sent in preds[0].tolist()]
-        xpos_seqs = [self.vocab['xpos'].unmap(sent) for sent in preds[1].tolist()]
-        feats_seqs = [self.vocab['feats'].unmap(sent) for sent in preds[2].tolist()]
+        n_pred = self.n_pred
+        bpi = lambda word: np.argsort(word)[-1:-(n_pred + 1):-1]
+        best_predictions = lambda vocab, word: self.vocab[vocab].unmap(bpi(word))
+        best_scores = lambda word: np.sort(word)[-1:-(n_pred + 1):-1]
+        zipper = lambda vocab, word: tuple(
+                zip(
+                    best_predictions(vocab, word),
+                    best_scores(word)
+                )
+            )
 
+        feats_zip = lambda word: tuple(
+                zip(
+                    bpi(word.detach().numpy()), 
+                    best_scores(word.detach().numpy()))
+                )
+        feats_zipper = lambda word: tuple(zip(
+            self.vocab['feats'].unmap(word[0].astype(int)),
+            word[1].tolist()
+        ))
+
+        upos_seqs = [[zipper('upos', word) for word in sent] for sent in preds[0].tolist()]
+        xpos_seqs = [[zipper('xpos', word) for word in sent] for sent in preds[1].tolist()]
+        feats_seqs = [[[feats_zip(word) for word in sent] for sent in feat] for feat in preds[2]]
+        feats_seqs = np.array(feats_seqs).transpose((1, 2, 4, 3, 0))
+        feats_seqs = [[feats_zipper(word) for word in sent] for sent in feats_seqs]
         pred_tokens = [[[upos_seqs[i][j], xpos_seqs[i][j], feats_seqs[i][j]] for j in range(sentlens[i])] for i in range(batch_size)]
         if unsort:
             pred_tokens = utils.unsort(pred_tokens, orig_idx)

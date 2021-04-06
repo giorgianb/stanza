@@ -9,6 +9,7 @@ from stanza.models.common.hlstm import HighwayLSTM
 from stanza.models.common.dropout import WordDropout
 from stanza.models.common.vocab import CompositeVocab
 from stanza.models.common.char_model import CharacterModel
+from icecream import ic
 
 class Tagger(nn.Module):
     def __init__(self, args, vocab, emb_matrix=None, share_hid=False):
@@ -88,6 +89,7 @@ class Tagger(nn.Module):
 
         self.drop = nn.Dropout(args['dropout'])
         self.worddrop = WordDropout(args['word_dropout'])
+        self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, word, word_mask, wordchars, wordchars_mask, upos, xpos, ufeats, pretrained, word_orig_idx, sentlens, wordlens):
         
@@ -124,11 +126,12 @@ class Tagger(nn.Module):
 
         upos_hid = F.relu(self.upos_hid(self.drop(lstm_outputs)))
         upos_pred = self.upos_clf(self.drop(upos_hid))
-
-        preds = [pad(upos_pred).max(2)[1]]
+        upos_loss = upos_pred
+        preds = [pad(self.softmax(upos_pred))]
+        upos_pred = pad(upos_pred)
 
         upos = pack(upos).data
-        loss = self.crit(upos_pred.view(-1, upos_pred.size(-1)), upos.view(-1))
+        loss = self.crit(upos_loss.view(-1, upos_loss.size(-1)), upos.view(-1))
 
         if self.share_hid:
             xpos_hid = upos_hid
@@ -142,7 +145,7 @@ class Tagger(nn.Module):
             if self.training:
                 upos_emb = self.upos_emb(upos)
             else:
-                upos_emb = self.upos_emb(upos_pred.max(1)[1])
+                upos_emb = self.upos_emb(upos_loss.max(1)[1])
 
             clffunc = lambda clf, hid: clf(self.drop(hid), self.drop(upos_emb))
 
@@ -157,14 +160,15 @@ class Tagger(nn.Module):
         else:
             xpos_pred = clffunc(self.xpos_clf, xpos_hid)
             loss += self.crit(xpos_pred.view(-1, xpos_pred.size(-1)), xpos.view(-1))
-            preds.append(pad(xpos_pred).max(2)[1])
+            preds.append(pad(self.softmax(xpos_pred)))
 
         ufeats_preds = []
         ufeats = pack(ufeats).data
         for i in range(len(self.vocab['feats'])):
             ufeats_pred = clffunc(self.ufeats_clf[i], ufeats_hid)
             loss += self.crit(ufeats_pred.view(-1, ufeats_pred.size(-1)), ufeats[:, i].view(-1))
-            ufeats_preds.append(pad(ufeats_pred).max(2, keepdim=True)[1])
-        preds.append(torch.cat(ufeats_preds, 2))
+            ufeats_preds.append(pad(self.softmax(ufeats_pred)))
+
+        preds.append(ufeats_preds)
 
         return loss, preds
