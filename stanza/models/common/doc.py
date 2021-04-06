@@ -8,6 +8,7 @@ import json
 import pickle
 
 from stanza.models.ner.utils import decode_from_bioes
+from icecream import ic
 
 multi_word_token_id = re.compile(r"([0-9]+)-([0-9]+)")
 multi_word_token_misc = re.compile(r".*MWT=Yes.*")
@@ -152,7 +153,7 @@ class Document(StanzaObject):
         self.num_tokens = sum([len(sentence.tokens) for sentence in self.sentences])
         self.num_words = sum([len(sentence.words) for sentence in self.sentences])
 
-    def get(self, fields, as_sentences=False, from_token=False):
+    def get(self, fields, getter=lambda unit, field: getattr(unit, field)[0][0], as_sentences=False, from_token=False):
         """ Get fields from a list of field names.
         If only one field name (string or singleton list) is provided,
         return a list of that field; if more than one, return a list of list.
@@ -172,6 +173,8 @@ class Document(StanzaObject):
         assert len(fields) >= 1, "Must have at least one field."
 
         results = []
+        get = lambda unit, field: getattr(unit, field)
+        smart_getter = lambda unit, field: getter(unit, field) if type(get(unit, field)) in {list, tuple} else get(unit, field)
         for sentence in self.sentences:
             cursent = []
             # decide word or token
@@ -181,9 +184,9 @@ class Document(StanzaObject):
                 units = sentence.words
             for unit in units:
                 if len(fields) == 1:
-                    cursent += [getattr(unit, fields[0])]
+                    cursent += [smart_getter(unit, fields[0])]
                 else:
-                    cursent += [[getattr(unit, field) for field in fields]]
+                    cursent += [[smart_getter(unit, field) for field in fields]]
 
             # decide whether append the results as a sentence or a whole list
             if as_sentences:
